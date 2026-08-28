@@ -1,5 +1,5 @@
-import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { getVoiceCode } from "../../voices";
+import { synthesizeSpeech } from "../../edgeTts";
 
 // Bắt buộc chạy trên Node.js runtime (không dùng Edge runtime của Vercel)
 export const runtime = "nodejs";
@@ -23,16 +23,7 @@ export async function POST(req) {
       });
     }
 
-    const tts = new MsEdgeTTS();
-    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-
-    const { audioStream } = await tts.toStream(text);
-
-    const chunks = [];
-    for await (const chunk of audioStream) {
-      chunks.push(chunk);
-    }
-    const audioBuffer = Buffer.concat(chunks);
+    const audioBuffer = await synthesizeSpeech({ text, voice });
 
     return new Response(audioBuffer, {
       status: 200,
@@ -42,10 +33,13 @@ export async function POST(req) {
       },
     });
   } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: "Có lỗi khi tạo giọng đọc." }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("TTS error:", err?.message || err);
+    return new Response(
+      JSON.stringify({ error: "Có lỗi khi tạo giọng đọc: " + (err?.message || "unknown") }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
